@@ -1,9 +1,6 @@
 package ru.x5.demo.kafka.saga.domain;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import ru.x5.demo.kafka.saga.enums.TicketStatus;
 
@@ -15,6 +12,9 @@ public class AirTicket {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @Column(nullable = false)
+    private String orderId;
 
     private TicketStatus status = TicketStatus.PENDING;
     @CreatedDate private LocalDateTime dateTime;
@@ -43,6 +43,14 @@ public class AirTicket {
 
     public void setDateTime(LocalDateTime dateTime) {
         this.dateTime = dateTime;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String orderId) {
+        this.orderId = orderId;
     }
 
     // endregion

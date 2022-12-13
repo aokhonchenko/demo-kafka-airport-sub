@@ -10,6 +10,7 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import ru.x5.demo.kafka.saga.config.AirportProperties;
+import ru.x5.demo.kafka.saga.dto.OrderUpdateDto;
 import ru.x5.demo.kafka.saga.enums.TicketStatus;
 import ru.x5.demo.kafka.saga.model.Result;
 
@@ -36,25 +37,41 @@ public class KafkaOrderListener {
         this.mapper = mapper;
     }
 
-    @KafkaListener(topics = "order", groupId = "airport")
-    public void processIncome(@Payload String order, Acknowledgment acknowledgment) {
+    @KafkaListener(topics = "${app.topic.income-order-topic}", groupId = "airport")
+    public void processIncome(@Payload OrderUpdateDto order, Acknowledgment acknowledgment) {
 
-        log.info("Получен запрос на авиабилет для заказа {}", order);
+        log.info("Получен новый статус [{}] для заказа {}", order.getStatus(), order.getOrderId());
+
+        if ("pending".equalsIgnoreCase(order.getStatus())) {
+            newOrder(order.getOrderId(), acknowledgment);
+            return;
+        }
+        if ("error".equalsIgnoreCase(order.getStatus())) {
+            decline(order.getOrderId(), acknowledgment);
+            return;
+        }
+        if ("done".equalsIgnoreCase(order.getStatus())) {
+            approve(order.getOrderId(), acknowledgment);
+        }
+    }
+
+    private void newOrder(String orderId, Acknowledgment acknowledgment) {
+        log.info("Получен запрос на авиабилет для заказа {}", orderId);
         Result result = new Result();
         try {
 
             // lets get some ticket
-            Integer ticketId = airTicketService.getNewTicket();
-            result.setOrderId(Integer.getInteger(order));
+            Integer ticketId = airTicketService.getNewTicket(orderId);
+            result.setOrderId(Integer.getInteger(orderId));
             result.setTicketId(ticketId);
 
             kafkaTemplate.send(
                     airportProperties.getOutcomeResultTopic(), mapper.writeValueAsString(result));
             acknowledgment.acknowledge();
         } catch (Exception ex) {
-            log.error("Отмечаем заказ билета как неудачный. Order = {}", order);
+            log.error("Отмечаем заказ билета как неудачный. Order = {}", orderId);
             log.error(ex.getMessage(), ex);
-            result.setOrderId(Integer.getInteger(order));
+            result.setOrderId(Integer.getInteger(orderId));
             result.setStatus(TicketStatus.ERROR);
             try {
                 kafkaTemplate.send(
@@ -66,5 +83,17 @@ public class KafkaOrderListener {
         } finally {
             acknowledgment.acknowledge();
         }
+    }
+
+    private void decline(String orderId, Acknowledgment acknowledgment) {
+        log.info("Отменяем заказ {}", orderId);
+        airTicketService.declineTicket(orderId);
+        acknowledgment.acknowledge();
+    }
+
+    private void approve(String orderId, Acknowledgment acknowledgment) {
+        log.info("Отменяем заказ {}", orderId);
+        airTicketService.approveTicket(orderId);
+        acknowledgment.acknowledge();
     }
 }

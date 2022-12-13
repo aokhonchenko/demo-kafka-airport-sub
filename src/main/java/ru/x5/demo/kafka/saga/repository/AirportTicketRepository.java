@@ -5,4 +5,7 @@ import org.springframework.stereotype.Repository;
 import ru.x5.demo.kafka.saga.domain.AirTicket;
 
 @Repository
-public interface AirportTicketRepository extends JpaRepository<AirTicket, Integer> {}
+public interface AirportTicketRepository extends JpaRepository<AirTicket, Integer> {
+
+    AirTicket findByOrderId(String orderId);
+}
